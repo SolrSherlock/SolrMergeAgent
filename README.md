@@ -5,7 +5,7 @@ A topic map merge engine in the SolrAgentFramework
 
 Status: *pre-alpha*<br/>
 
-Latest edit: 20130217
+Latest edit: 201300307
 ## Background ##
 SolrMergeAgent is a complex system. Its task is easily describe as:
 
@@ -13,9 +13,14 @@ SolrMergeAgent is a complex system. Its task is easily describe as:
 
 Answering that question becomes the task of a variety of tiny *single-purpose* agents. Each gets a *vote* on whether to merge or not.
 
-## ToDo ##
+Presently, there are three merge agents installed and configured in the config-properties.xml file:
+- DetailsMergeAgent
+- LabelMergeAgent
+- WebResourcesMergeAgent
 
-It's huge...
+Many more to follow: all merge agents are installed by way of adding the classpath to a named agent in the config-properties.xml file.
+
+This Merge platform is built into a copy of the SolrAgentFramework; it listens to the SolrAgentCoordinator (blackboard) for new documents received by Solr.
 
 ## License ##
 Apache 2
