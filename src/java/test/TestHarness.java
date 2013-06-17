@@ -28,8 +28,9 @@ public class TestHarness {
 		//new FirstMergeAgentTest();
 		//new FetchTest();
 		//new SecondFetchTest();
-		new TripleMergeTest();
+		//new TripleMergeTest();
 		//new WebResourceTest();
+		new SecondWebResourceTest();
 		System.out.println("Did");
 	}
 

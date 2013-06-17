@@ -15,8 +15,11 @@
  */
 package org.topicquests.solr.agents.merge;
 import java.util.*;
-import net.sf.json.JSONObject;
-import net.sf.json.JSONArray;
+//import net.sf.json.JSONObject;
+//import net.sf.json.JSONArray;
+import org.json.simple.JSONObject;
+import org.json.simple.JSONArray;
+import org.json.simple.parser.JSONParser;
 
 import org.topicquests.agent.solr.AgentEnvironment;
 import org.topicquests.common.api.ITopicQuestsOntology;
@@ -46,6 +49,8 @@ public class SolrMergeEngine implements ITopicMergePortfolioListener {
 	private LoggingPlatform log;
 	private Tracer tracer;
 	private AgentEnvironment agentEnvironment;
+	private List<String> nodesInMerge;
+	private JSONParser parser;
 
 	/**
 	 * 
@@ -54,16 +59,29 @@ public class SolrMergeEngine implements ITopicMergePortfolioListener {
 		agentEnvironment = e;
 		log  = LoggingPlatform.getInstance();
 		tracer = log.getTracer("SolrMergeEngine");
+		nodesInMerge = new ArrayList<String>();
+		parser = new JSONParser();
 	}
 
+	public List<String> listNodesInMerge() {
+		synchronized(nodesInMerge) {
+			return nodesInMerge;
+		}
+	}
 	
 	public void studyDocument(String jsonString) {
 		System.out.println(jsonString);
 		tracer.trace(0, jsonString);
-		JSONObject jo = JSONObject.fromObject(jsonString);
 		Map<String,Object>o = new HashMap<String,Object>();
-		//TODO dump the JSONObject to this map
 		try {
+			JSONObject jo = (JSONObject)parser.parse(jsonString);
+			String locator = (String)jo.get(ITopicQuestsOntology.LOCATOR_PROPERTY);
+			// are we busy looking at this puppy
+			synchronized(nodesInMerge) {
+				if (nodesInMerge.contains(locator))
+					return;
+			}
+			//TODO dump the JSONObject to this map
 			Iterator<String>itr = jo.keySet().iterator();
 			Object vo;
 			String key;
@@ -85,6 +103,7 @@ public class SolrMergeEngine implements ITopicMergePortfolioListener {
 		} catch (Exception e) {
 			agentEnvironment.logError(e.getMessage(), e);
 			e.printStackTrace();
+			return; //we cannot study this document
 		}
 		//should not try to merge tuples
 		Object isTuple = o.get(ITopicQuestsOntology.TUPLE_SUBJECT_PROPERTY);
@@ -104,6 +123,7 @@ public class SolrMergeEngine implements ITopicMergePortfolioListener {
 			INode node = new Node(o);
 			TopicMergePortfolio pf = new TopicMergePortfolio(agentEnvironment, this);
 			pf.studyNode(node);
+			
 			//poof! It's gone. That's a threaded activity
 			//Trust me: it will be back!
 		}

@@ -46,6 +46,8 @@ public class DetailsMergeAgent extends BasePortfolioAgent {
 		
 		public void run() {
 			List<String> details = theNode.listDetails(language);
+			//NOTE: this can return an empty list
+			// which means we need to look at other details as well
 			agentEnvironment.logDebug("DetailsMergeAgent- "+details);
 			ISolrQueryIterator itr = null;
 			Iterator<String>labelItr = details.iterator();
@@ -57,28 +59,30 @@ public class DetailsMergeAgent extends BasePortfolioAgent {
 			while (labelItr.hasNext()) {
 				testDetails = labelItr.next();
 				agentEnvironment.logDebug("DetailsMergeAgent-0 "+testDetails);
-				itr = solrModel.listNodesByDetails(testDetails, language, 10, credentials);
-				itrResult = itr.next();
-				if (itrResult.hasError())
-					errorMessages.add(itrResult.getErrorString());
-				theHits = (List<INode>)itrResult.getResultObject();
-				agentEnvironment.logDebug("DetailsMergeAgent-1 "+theHits);
-				while (theHits != null && !theHits.isEmpty()) {
+				if (!testDetails.equals("")) {
+					itr = solrModel.listNodesByDetails(testDetails, language, 10, credentials);
+					itrResult = itr.next();
 					if (itrResult.hasError())
 						errorMessages.add(itrResult.getErrorString());
-					agentEnvironment.logDebug("DetailsMergeAgent-2 "+itrResult.getErrorString()+" "+itrResult.getResultObject());
-					if (theHits.size() > 0) {
-						nodeItr = theHits.iterator();
-						while (nodeItr.hasNext()) {
-							theHit = nodeItr.next();
-							if (!isSameNode(theHit)) {
-								if (compareNodeTypes(theHit))
-									addToHits(theHit, details,language, ITopicQuestsOntology.DETAILS_PROPERTY);
+					theHits = (List<INode>)itrResult.getResultObject();
+					agentEnvironment.logDebug("DetailsMergeAgent-1 "+theHits);
+					while (theHits != null && !theHits.isEmpty()) {
+						if (itrResult.hasError())
+							errorMessages.add(itrResult.getErrorString());
+						agentEnvironment.logDebug("DetailsMergeAgent-2 "+itrResult.getErrorString()+" "+itrResult.getResultObject());
+						if (theHits.size() > 0) {
+							nodeItr = theHits.iterator();
+							while (nodeItr.hasNext()) {
+								theHit = nodeItr.next();
+								if (!isSameNode(theHit)) {
+									if (compareNodeTypes(theHit))
+										addToHits(theHit, details,language, ITopicQuestsOntology.DETAILS_PROPERTY);
+								}
 							}
 						}
+						itrResult = itr.next();
+						theHits = (List<INode>)itrResult.getResultObject();
 					}
-					itrResult = itr.next();
-					theHits = (List<INode>)itrResult.getResultObject();
 				}
 			}
 			//then return to the host
@@ -99,6 +103,9 @@ public class DetailsMergeAgent extends BasePortfolioAgent {
 		//there will be some nodes for which looking at details is
 		//not indicated such as tuples
 		myReason = "Same details";
+		List<String>dets = newTopic.listDetails();
+		if (dets == null || dets.size() == 0)
+			return false;
 		if (newTopic.isTuple())
 			return false;
 		return true;

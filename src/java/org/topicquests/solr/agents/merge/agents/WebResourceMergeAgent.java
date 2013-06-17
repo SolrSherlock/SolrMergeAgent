@@ -20,6 +20,7 @@ import java.util.List;
 
 import org.topicquests.common.api.IResult;
 import org.topicquests.common.api.ITopicQuestsOntology;
+import org.topicquests.common.api.INodeTypes;
 import org.topicquests.model.api.INode;
 import org.topicquests.solr.agents.merge.BasePortfolioAgent;
 import org.topicquests.solr.agents.merge.agents.DetailsMergeAgent.Worker;
@@ -45,15 +46,26 @@ public class WebResourceMergeAgent extends BasePortfolioAgent {
 	@Override
 	protected boolean doWeCare(INode newTopic) {
 		myReason = "Same Web URL";
-		if (!ITopicQuestsOntology.WEB_RESOURCE_TYPE.equals(newTopic.getNodeType()))
+		String typ = newTopic.getNodeType();
+		//look at three different types
+		boolean isIt = ITopicQuestsOntology.WEB_RESOURCE_TYPE.equals(typ);
+		if (!isIt)
+			isIt = INodeTypes.BLOG_TYPE.equals(typ);
+		if (!isIt)
+			isIt = INodeTypes.BOOKMARK_TYPE.equals(typ);
+		if (!isIt)
 			return false;
 		Object o = newTopic.getProperty(ITopicQuestsOntology.RESOURCE_URL_PROPERTY);
 		if (o == null) {//sanity check -- would be nice to alert user that a bad node came in
 			solrEnvironment.logError("WebResourceMergeAgent.doWeCare missing URL for "+newTopic.getLocator(), null);
 			return false;
 		}
-		queryString = "("+ITopicQuestsOntology.IS_VIRTUAL_PROXY+":true AND "+ITopicQuestsOntology.INSTANCE_OF_PROPERTY_TYPE+":"+ITopicQuestsOntology.WEB_RESOURCE_TYPE+") OR ("+
-						ITopicQuestsOntology.INSTANCE_OF_PROPERTY_TYPE+":"+ITopicQuestsOntology.WEB_RESOURCE_TYPE+")";
+		queryString = "("+ITopicQuestsOntology.IS_VIRTUAL_PROXY+":true AND "+ITopicQuestsOntology.INSTANCE_OF_PROPERTY_TYPE+":"+ITopicQuestsOntology.WEB_RESOURCE_TYPE+") OR " +
+				"("+ITopicQuestsOntology.IS_VIRTUAL_PROXY+":true AND "+ITopicQuestsOntology.INSTANCE_OF_PROPERTY_TYPE+":"+INodeTypes.BLOG_TYPE+") OR " +
+				"("+ITopicQuestsOntology.IS_VIRTUAL_PROXY+":true AND "+ITopicQuestsOntology.INSTANCE_OF_PROPERTY_TYPE+":"+INodeTypes.BOOKMARK_TYPE+") OR " +
+				 "("+ITopicQuestsOntology.INSTANCE_OF_PROPERTY_TYPE+":"+INodeTypes.BOOKMARK_TYPE+") OR "+
+				 "("+ITopicQuestsOntology.INSTANCE_OF_PROPERTY_TYPE+":"+INodeTypes.BLOG_TYPE+") OR "+
+                "("+ITopicQuestsOntology.INSTANCE_OF_PROPERTY_TYPE+":"+ITopicQuestsOntology.WEB_RESOURCE_TYPE+")";
 		return true;
 	}
 

@@ -61,30 +61,32 @@ public class LabelMergeAgent extends BasePortfolioAgent {
 			while (labelItr.hasNext()) {
 				testLabel = labelItr.next();
 				agentEnvironment.logDebug("LabelMergeAgent-0 "+testLabel);
-				itr = solrModel.listNodesByLabel(testLabel, language, 10, credentials);
-				itrResult = itr.next();
-				theHits = (List<INode>)itrResult.getResultObject();
-				agentEnvironment.logDebug("LabelMergeAgent-1 "+theHits);
-				while (theHits != null && !theHits.isEmpty()) {
-					if (itrResult.hasError())
-						errorMessages.add(itrResult.getErrorString());
-					agentEnvironment.logDebug("LabelMergeAgent-2 "+itrResult.getErrorString()+" "+itrResult.getResultObject());
-					theHits = (List<INode>)itrResult.getResultObject();
-					if (itrResult.hasError())
-						errorMessages.add(itrResult.getErrorString());
-					if (theHits.size() > 0) {
-						nodeItr = theHits.iterator();
-						while (nodeItr.hasNext()) {
-							theHit = nodeItr.next();
-							if (!isSameNode(theHit)) {
-								agentEnvironment.logDebug("LabelMergeAgent-3 "+theHit);
-								if (compareNodeTypes(theHit))
-									addToHits(theHit, labels,language, ITopicQuestsOntology.LABEL_PROPERTY);
-							}
-						}
-					}
+				if (!testLabel.equals("")) {
+					itr = solrModel.listNodesByLabel(testLabel, language, 10, credentials);
 					itrResult = itr.next();
 					theHits = (List<INode>)itrResult.getResultObject();
+					agentEnvironment.logDebug("LabelMergeAgent-1 "+theHits);
+					while (theHits != null && !theHits.isEmpty()) {
+						if (itrResult.hasError())
+							errorMessages.add(itrResult.getErrorString());
+						agentEnvironment.logDebug("LabelMergeAgent-2 "+itrResult.getErrorString()+" "+itrResult.getResultObject());
+						theHits = (List<INode>)itrResult.getResultObject();
+						if (itrResult.hasError())
+							errorMessages.add(itrResult.getErrorString());
+						if (theHits.size() > 0) {
+							nodeItr = theHits.iterator();
+							while (nodeItr.hasNext()) {
+								theHit = nodeItr.next();
+								if (!isSameNode(theHit)) {
+									agentEnvironment.logDebug("LabelMergeAgent-3 "+theHit);
+									if (compareNodeTypes(theHit))
+										addToHits(theHit, labels,language, ITopicQuestsOntology.LABEL_PROPERTY);
+								}
+							}
+						}
+						itrResult = itr.next();
+						theHits = (List<INode>)itrResult.getResultObject();
+					}
 				}
 			}
 			//then return to the host

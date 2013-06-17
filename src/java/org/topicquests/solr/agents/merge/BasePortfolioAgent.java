@@ -63,7 +63,7 @@ public abstract class BasePortfolioAgent implements IPortfolioAgent {
 	 * 	Value  key is name of object: numHits, vote
 	 * 	
 	 */
-	public Map<String, Map<String,Object>> hits;
+	public Map<INode, Map<String,Object>> hits;
 	private int numVotes = 0;
 	
 	
@@ -78,7 +78,7 @@ public abstract class BasePortfolioAgent implements IPortfolioAgent {
 		solrModel = solrEnvironment.getSolrModel();
 		database = solrEnvironment.getDataProvider();
 		tupleQuery = database.getTupleQuery();
-		hits = new HashMap<String, Map<String,Object>>();
+		hits = new HashMap<INode, Map<String,Object>>();
 		credentials = new HashSet<String>();
 		credentials.add("admin");
 		errorMessages = new ArrayList<String>();
@@ -166,19 +166,19 @@ public abstract class BasePortfolioAgent implements IPortfolioAgent {
 	 */
 	public void done() {
 		Map<String,Object>m;
-		Iterator<String>itr = this.hits.keySet().iterator();
+		Iterator<INode>itr = this.hits.keySet().iterator();
 		Integer counts;
 		Double votes;
-		String locator;
+		INode node;
 		while (itr.hasNext()) {
-			locator = itr.next();
-			m = hits.get(locator);
+			node = itr.next();
+			m = hits.get(node);
 			votes = (Double)m.get("votes");
 			counts = (Integer)m.get("numHits");
 			double d = 0;
 			if (votes > 0 && counts > 0) 
 				d = votes.doubleValue()/(double)counts.intValue();
-			host.assignVote(locator, myReason, new Double(d));
+			host.assignVote(node, myReason, new Double(d));
 		}
 		
 		host.acceptPortfolioAgent(this);
@@ -245,14 +245,13 @@ public abstract class BasePortfolioAgent implements IPortfolioAgent {
 	 */
 	public void addToHits(INode hitNode, 
 				List<String> objects, String language, String baseField) {
-		String lox = hitNode.getLocator();
-		Map<String,Object>o = hits.get(lox);
+		Map<String,Object>o = hits.get(hitNode);
 		
 		if (o == null) {
 			o = new HashMap<String,Object>();
 			o.put("numHits", new Integer(0));
 			o.put("votes", new Double(0));
-			hits.put(lox, o);
+			hits.put(hitNode, o);
 		}
 		Integer ix = (Integer)o.get("numHits");
 		int iix = ix.intValue();
@@ -293,14 +292,13 @@ public abstract class BasePortfolioAgent implements IPortfolioAgent {
 	 * @param confidence
 	 */
 	public void addToHits(INode hitNode, double vote) {
-		String lox = hitNode.getLocator();
-		Map<String,Object>o = hits.get(lox);
+		Map<String,Object>o = hits.get(hitNode);
 		
 		if (o == null) {
 			o = new HashMap<String,Object>();
 			o.put("numHits", new Integer(0));
 			o.put("votes", new Double(0));
-			hits.put(lox, o);
+			hits.put(hitNode, o);
 		}
 		Double d = (Double)o.get("votes");
 		double dd = d.doubleValue();

@@ -54,8 +54,8 @@ public class TopicMergePortfolio {
 	//	 	What was the merge reason
 	//   	How much was the vote associated with that reason
 	//   This gives rise to a common Map structure here:
-	private Map<String,Map<String,Double>> nodeMergeMap;
-	//    primary key: nodeLocator
+	private Map<INode,Map<String,Double>> nodeMergeMap;
+	//    primary key: theNode itself
 	//    primary value: a Map
 	//        secondary key: reason
 	//        secondary value: vote
@@ -75,7 +75,7 @@ public class TopicMergePortfolio {
 		credentials = new HashSet<String>();
 		credentials.add("admin");
 		mergeAgentLocator = ITopicQuestsOntology.MERGE_AGENT_TYPE;
-		nodeMergeMap = new HashMap<String,Map<String,Double>>();
+		nodeMergeMap = new HashMap<INode,Map<String,Double>>();
 		instance = this;
 		try {
 			IPortfolioAgent merger;
@@ -110,12 +110,12 @@ public class TopicMergePortfolio {
 	 * @param reason
 	 * @param vote
 	 */
-	public void assignVote(String nodeLocator, String reason, Double vote) {
+	public void assignVote(INode node, String reason, Double vote) {
 		synchronized(nodeMergeMap) {
-			Map<String,Double>m = nodeMergeMap.get(nodeLocator);
+			Map<String,Double>m = nodeMergeMap.get(node);
 			if (m == null) {
 				m = new HashMap<String,Double>();
-				nodeMergeMap.put(nodeLocator, m);
+				nodeMergeMap.put(node, m);
 			}
 			m.put(reason, vote);
 		}
@@ -159,10 +159,13 @@ public class TopicMergePortfolio {
 		List<String>errorMessages = agent.getErrorStrings();
 		agentEnvironment.logDebug("AgentPortfolio.acceptPortfolio-1 "+errorMessages+" | "+this.nodeMergeMap);
 		boolean isEmpty = false;
+		//THIS SYNCHRONIZED block is failing since it fires while we are already
+		//synchronized by fireTheAgenda
 		synchronized(agents) {
-			System.out.println("TopicMergePortfolio.acceptPortfolioAgent");
+			agentEnvironment.logDebug("TopicMergePortfolio.acceptPortfolioAgent-");
 			agents.remove(agent);
 			isEmpty = agents.isEmpty();
+			agentEnvironment.logDebug("TopicMergePortfolio.acceptPortfolioAgent+");
 		}
 		if (isEmpty)
 			dealWithMerge();
@@ -187,6 +190,28 @@ public class TopicMergePortfolio {
 	//    is given the total vote, and list of votes.
 	//    Might be interesting to give the {vote, reason} pair
 	/////////////////////////////////////////////////////////////////
+	// When we get to dealWithMerge, we have a map which includes all nodes found
+	//  suitable for merge with myNode, and the reasons.
+	// WHAT IS IMPORTANT:
+	//	One of those nodes might already be a VirtualNode.
+	//  IF THAT IS THE CASE:
+	//  THEN we shuffle the deck and submit that along with all the other nodes
+	//   for merging
+	/////////////////////////////////////////////////////////////////
+	// AN UNDERLYING BELIEF (assumption)
+	//	There can be one and only one VirtualNode for any given topic.
+	//  This means that, if the merge testers which feed this system
+	//   are doing their job correctly, they should only detect one and only
+	//   one VirtualNode for a given myNode.
+	// THEORETICALLY SPEAKING:
+	//	It would be an error condition if more than one VirtualNode is sent
+	//  here
+	// IN THIS CODE:
+	//	We detect the first VirtualNode. If we detect others, an error is reported and
+	//  we ignore that node entirely.
+	//     THAT COULD LEAD TO SERIOUS MERGE ERRORS
+	//		MUST REVISIT THIS CODE
+	/////////////////////////////////////////////////////////////////
 	/**
 	 * <p>Here, we must deal with potentially many nodes which are
 	 * candidates for merge with <code>myNode</code></p>
@@ -195,13 +220,49 @@ public class TopicMergePortfolio {
 		agentEnvironment.logDebug("TopicMergePortfolio.dealWithMerge- "+nodeMergeMap);
 		//keep this node in the log for studying the results
 		agentEnvironment.logDebug("MY NODE: "+myNode.toXML());
-		String nodeLocator;
+		INode node;
+		INode virtualNode = null;
 		Map<String,Double> hitDetails;
-		Iterator<String>hititr = nodeMergeMap.keySet().iterator();
+		Iterator<INode>hititr = nodeMergeMap.keySet().iterator();
+		Set<INode> ndx = new HashSet<INode>();
+		//Sort the nodes
 		while (hititr.hasNext()) {
-			nodeLocator = hititr.next();
-			hitDetails = nodeMergeMap.get(nodeLocator);
-			performMerge(nodeLocator,hitDetails);
+			node = hititr.next();
+			agentEnvironment.logDebug("TopicMergePortfolio.dealWithMerge-1 "+node.getLocator());
+			if (node.getIsVirtualProxy()) {
+				if (virtualNode != null) {
+					if (!node.getLocator().equals(virtualNode.getLocator()))
+						//THIS IS AN ERROR CONDITION
+						agentEnvironment.logError("TopicMergePortfolio.dealWithMerge detected multiple Virtual Nodes. MyNode: "+
+									myNode.getLocator()+" First VN: "+virtualNode.getLocator()+" This VN: "+node.getLocator(),null);
+				} else
+					virtualNode = node;
+			} else if (node.getMergeTupleLocator() == null)
+				//don't send in already-merged nodes as source
+				//because there is already a virtual for them
+				ndx.add(node);
+		//	hitDetails = nodeMergeMap.get(node);
+		}
+		agentEnvironment.logDebug("TopicMergePortfolio.dealWithMerge-2 "+ndx);
+		hititr = ndx.iterator();
+		if (virtualNode == null) {
+			
+			while (hititr.hasNext()) {
+				node = hititr.next();
+				hitDetails = nodeMergeMap.get(node);
+				performMerge(node.getLocator(),hitDetails);
+			}
+		} else {
+			String lox = virtualNode.getLocator();
+			//first, send in myNode against virtualNode
+			hitDetails = nodeMergeMap.get(virtualNode);
+			performMerge(lox,hitDetails);
+			//now, send in all the rest against virtualNode
+			while (hititr.hasNext()) {
+				myNode = hititr.next();
+				hitDetails = nodeMergeMap.get(myNode);
+				performMerge(lox,hitDetails);
+			}
 		}
 	}
 	
@@ -211,12 +272,29 @@ public class TopicMergePortfolio {
 	 * @param details
 	 */
 	void performMerge(String targetNodeLocator, Map<String,Double>details) {
-		agentEnvironment.logDebug("TopicMergePortfolio.performMerge- "+targetNodeLocator+" "+details);
-		boolean isOkToMerge = true;
-		//TODO calculate isOkToMerge
+		agentEnvironment.logDebug("TopicMergePortfolio.performMerge- "+targetNodeLocator+" "+myNode.getLocator()+" "+details);
+		boolean isOkToMerge = false;
+		if (targetNodeLocator.equals(myNode.getLocator()))
+			return;
+		String key;
+		Iterator<String>itr = details.keySet().iterator();
+		double total = 0;
+		while (itr.hasNext()) {
+			key = itr.next();
+			if (details.get(key) != null)
+				total += details.get(key).doubleValue();
+		}
+		if (total >= 1.0)
+			isOkToMerge = true;
+		agentEnvironment.logDebug("TopicMergePortfolio.performMerge-1 "+total+" "+isOkToMerge);
+		
 		if (isOkToMerge) {
-			IResult x = nodeModel.assertMerge(myNode, targetNodeLocator, details, 0, ITopicQuestsOntology.MERGE_AGENT_TYPE);
+			//POSSIBLE ISSUES of CONCURRENT MODIFICATION on nodesInMerge
+			listener.listNodesInMerge().add(myNode.getLocator());
+			IResult x = nodeModel.assertMerge(myNode.getLocator(), targetNodeLocator, details, 0, ITopicQuestsOntology.MERGE_AGENT_TYPE);
+			listener.listNodesInMerge().remove(myNode.getLocator());
 			agentEnvironment.logDebug("TopicMergePortfolio.performMerge+ "+x.getErrorString());			
+		
 		}
 	}
 	
@@ -241,8 +319,18 @@ public class TopicMergePortfolio {
 		void fireTheAgenda() {
 			agentEnvironment.logDebug("TopicMergePortfolio.fireTheAgenda "+agents);
 			String locator = myNode.getLocator();
+			List<IPortfolioAgent>l = new ArrayList<IPortfolioAgent>();
 			synchronized(agents) {
-				Iterator<IPortfolioAgent>itr = agents.iterator();
+				//CONCURRENCY ISSUE HERE:
+				// We see TopicMergePortfolio.fireTheAgenda- in the log
+				// then we crash due to acceptPortfolioAgent firing while we
+				// are still busy
+				// so, we just copy agents into a new list and use that
+				
+				l.addAll(agents);
+			}
+			agentEnvironment.logDebug("TopicMergePortfolio.fireTheAgenda-");
+				Iterator<IPortfolioAgent>itr = l.iterator();
 				//There is a concurrency issue going on here in relations to
 				// nodes being processed while this is running.
 				//we have many agents playing with myNode
@@ -261,9 +349,10 @@ public class TopicMergePortfolio {
 					if (a != null) // strange null values
 						a.evaluateTopic(locator);
 				}
+				agentEnvironment.logDebug("TopicMergePortfolio.fireTheAgenda+");
 			}
 				
-		}
+		
 		
 		/**
 		 * Figure out what to do on <code>myNode</code>
@@ -273,20 +362,21 @@ public class TopicMergePortfolio {
 			IPortfolioAgent labels=null;
 			IPortfolioAgent details=null;
 			synchronized(agents) {
+				agentEnvironment.logDebug("TopicMergePortfolio.buildAgenda-");
 				Iterator<IPortfolioAgent>itr = agents.iterator();
 				IPortfolioAgent x;
 				//prune agents list
 				while (itr.hasNext()) {
 					x = itr.next();
 					if (x instanceof DetailsMergeAgent) {
-						if (!x.isAppropriateTopic(myNode))
+//						if (!x.isAppropriateTopic(myNode))
 							toRemove.add(x);
-						else
+//						else
 							details = x;
 					} else if (x instanceof LabelMergeAgent) {
-						if (!x.isAppropriateTopic(myNode))
+//						if (!x.isAppropriateTopic(myNode))
 							toRemove.add(x);
-						else
+//						else
 							labels = x;
 					} if (!x.isAppropriateTopic(myNode))
 						toRemove.add(x); //this agent doesn't want to look at myNode
@@ -304,6 +394,7 @@ public class TopicMergePortfolio {
 					if (details != null)
 						agents.add(details);
 				}
+				agentEnvironment.logDebug("TopicMergePortfolio.buildAgenda+");
 			}
 				
 		}
