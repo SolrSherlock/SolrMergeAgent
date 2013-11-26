@@ -28,7 +28,7 @@ public class FetchTest {
 		//create an environment without a desktop window
 		environment = new SolrEnvironment();
 		//grab the solr database
-		solr = environment.getDataProvider();
+		solr = (ISolrDataProvider)environment.getDataProvider();
 		runTest();
 	}
 

@@ -22,10 +22,15 @@ import org.json.simple.JSONArray;
 import org.json.simple.parser.JSONParser;
 
 import org.topicquests.agent.solr.AgentEnvironment;
+import org.topicquests.common.ResultPojo;
+import org.topicquests.common.api.IResult;
 import org.topicquests.common.api.ITopicQuestsOntology;
 import org.topicquests.model.Node;
 import org.topicquests.model.api.INode;
+import org.topicquests.model.api.ITuple;
+import org.topicquests.model.api.ITupleQuery;
 import org.topicquests.solr.agents.merge.api.ITopicMergePortfolioListener;
+import org.topicquests.solr.api.ISolrDataProvider;
 import org.topicquests.util.LoggingPlatform;
 import org.topicquests.util.Tracer;
 
@@ -51,16 +56,23 @@ public class SolrMergeEngine implements ITopicMergePortfolioListener {
 	private AgentEnvironment agentEnvironment;
 	private List<String> nodesInMerge;
 	private JSONParser parser;
+//	private ITupleQuery tupleQuery;
+//	private Set<String>credentials;
+//	private ISolrDataProvider database;
 
 	/**
 	 * 
 	 */
 	public SolrMergeEngine(AgentEnvironment e) {
 		agentEnvironment = e;
-		log  = LoggingPlatform.getInstance();
+		log  = LoggingPlatform.getLiveInstance();
 		tracer = log.getTracer("SolrMergeEngine");
 		nodesInMerge = new ArrayList<String>();
 		parser = new JSONParser();
+//		database = (ISolrDataProvider)agentEnvironment.getSolrEnvironment().getDataProvider();
+//		tupleQuery = database.getTupleQuery();
+//		credentials = new HashSet<String>();
+//		credentials.add("admin");
 	}
 
 	public List<String> listNodesInMerge() {
@@ -70,6 +82,7 @@ public class SolrMergeEngine implements ITopicMergePortfolioListener {
 	}
 	
 	public void studyDocument(String jsonString) {
+		log.logDebug("SolrMergeEngine.studyDocument "+jsonString);
 		System.out.println(jsonString);
 		tracer.trace(0, jsonString);
 		Map<String,Object>o = new HashMap<String,Object>();
@@ -119,6 +132,8 @@ public class SolrMergeEngine implements ITopicMergePortfolioListener {
 					   typ.equals(ITopicQuestsOntology.POSSIBLE_MERGE_ASSERTIONTYPE)||
 					   typ.equals(ITopicQuestsOntology.UNMERGE_ASSERTION_TYPE));
 		// we do not merge virtual proxies or merge assertion tuples
+		log.logDebug("SolrMergeEngine.studyDocument-1 "+isVirtual+" "+hasVirtual+" "+ismerge+" "+isTuple);
+		
 		if (isVirtual == null && hasVirtual == null && !ismerge && isTuple == null) {
 			INode node = new Node(o);
 			TopicMergePortfolio pf = new TopicMergePortfolio(agentEnvironment, this);
@@ -128,7 +143,35 @@ public class SolrMergeEngine implements ITopicMergePortfolioListener {
 			//Trust me: it will be back!
 		}
 	}
-
+	/**
+	 * <p>Return an {@link INode} if <code>sourceNode</code> is the <em>target</em></p>
+	 * <p>This relies on the notion that there can be one and only one MergeAssertion per node</p>
+	 * in a MergeAssertion
+	 * @param sourceNode
+	 * @return
+	 * /
+	private IResult hasVirtualProxy(INode sourceNode) {
+		IResult result = new ResultPojo();
+		/////////////////////////////////
+		//This is a crucial test.
+		// IF this node is already the object of a MergeTuple, then it has been merged.
+		/////////////////////////////////
+		IResult tq = tupleQuery.listSubjectNodesByObjectAndRelation(sourceNode.getLocator(), ITopicQuestsOntology.MERGE_ASSERTION_TYPE, credentials);
+		if (tq.hasError())
+			result.addErrorString(tq.getErrorString());
+		if (tq.getResultObject() != null) {
+			List<INode>l = (List<INode>)tq.getResultObject();
+			if (!l.isEmpty()) {
+				ITuple t = (ITuple)l.get(0);
+				tq = database.getNode(t.getSubjectLocator(), credentials);
+				result.setResultObject((INode)tq.getResultObject());
+				if (tq.hasError())
+					result.addErrorString(tq.getErrorString());
+			}
+		}
+		return result;
+	}
+*/
 	/**
 	 * It's back!
 	 * @param p

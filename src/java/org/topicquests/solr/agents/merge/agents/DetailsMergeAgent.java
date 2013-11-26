@@ -99,6 +99,7 @@ public class DetailsMergeAgent extends BasePortfolioAgent {
 
 	@Override
 	protected boolean doWeCare(INode newTopic) {
+		agentEnvironment.logDebug("DetailsMergeAgent.doWeCare "+newTopic.getLocator());
 		//TODO become more sophisticated here. We need to test;
 		//there will be some nodes for which looking at details is
 		//not indicated such as tuples

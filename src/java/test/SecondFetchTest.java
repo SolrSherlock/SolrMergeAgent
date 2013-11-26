@@ -29,7 +29,7 @@ public class SecondFetchTest {
 	public SecondFetchTest() {
 		environment = new SolrEnvironment();
 		//grab the solr database
-		solr = environment.getDataProvider();
+		solr = (ISolrDataProvider)environment.getDataProvider();
 		model = solr.getNodeModel();
 		runTest();
 	}
@@ -41,6 +41,7 @@ public class SecondFetchTest {
 		String myDetails = "How's that for a node?";
 		IResult r = model.newNode(myLabel, myDetails, "en", "admin", null, null, false);
 		INode n = (INode)r.getResultObject();
+		System.out.println("XXXX "+n);
 		solr.putNode(n);
 		String locator = n.getLocator();
 		IResult x = solr.getNode(locator, credentials);

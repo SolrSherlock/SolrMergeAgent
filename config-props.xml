@@ -19,7 +19,12 @@
 			that two agents, while booting, will decide to begin the
 			bootstrap process at the same time is not nil.
 	 -->
-	<parameter name="ShouldBootstrap" value="No" /> <!-- should be Yes -->
+	<parameter name="ShouldBootstrap" value="Yes" /> <!-- should be Yes -->
+
+	<!-- Select either stand-alone client or SolrCloud client
+	 -->
+	<parameter name="SolrClient" value="org.topicquests.solr.Solr3Client" /> 
+	<!--<parameter name="SolrClient" value="org.topicquests.solr.SolrCloudClient" /> --> 
 
 	<!-- 
 		The core TopicQuests topic map platform has an internal merge function which
@@ -54,9 +59,18 @@
 	 -->
 	<parameter name="SemiSpaceName" value="SemiSpace94026" /> 
 
-	<!-- if it's localhost, this should work: http://localhost:8983/solr/ "http://10.1.10.80:8993/solr/"-->
-	<parameter name="SolrURL" value="http://localhost:8983/solr/" /> <!-- CHANGE ME -->
-	
+	<!-- This is for one to many SolrCore servers as singleton or in a cloud -->
+	<list name="SolrURLs">
+		<!-- if it's localhost, this should work: http://localhost:8983/solr/ "http://10.1.10.80:8993/solr/"-->
+		<parameter name="local" value="http://localhost:8983/solr/" />
+	<!-- 	<parameter name="node1" value="10.1.10.178:8983" /> 
+		<parameter name="node2" value="10.1.10.178:7574" />  -->
+	</list>
+	<!-- ZooKeeper Hosts
+		This is for one to many ZooKeeper installations -->
+	<list name="ZKHosts">
+		<parameter name="local" value="10.1.10.178:2181" /> <!-- CHANGE ME -->
+	</list>
 	<!-- number of nodes cached internally  -->
 	<parameter name="MapCacheSize" value="1024" /> 
 
@@ -84,6 +98,10 @@
 		<parameter name="DetailsAgent" value="org.topicquests.solr.agents.merge.agents.DetailsMergeAgent" />
 	<!-- 	<parameter name="TuplesAgent" value="org.topicquests.solr.agents.merge.agents.TupleMergeAgent" />  -->
 		<parameter name="WebResourceAgent" value="org.topicquests.solr.agents.merge.agents.WebResourceMergeAgent" />
+		<parameter name="IBISQuestionAgent" value="org.topicquests.solr.agents.merge.agents.IBISQuestionMergeAgent" />
+		<parameter name="IBISAnswerAgent" value="org.topicquests.solr.agents.merge.agents.IBISAnswerMergeAgent" />
+		<parameter name="IBISProAgent" value="org.topicquests.solr.agents.merge.agents.IBISProArgumentMergeAgent" />
+		<parameter name="IBISConAgent" value="org.topicquests.solr.agents.merge.agents.IBISConArgumentMergeAgent" />
 	</list>	
 	
 	

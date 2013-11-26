@@ -23,11 +23,11 @@ import org.topicquests.common.ResultPojo;
 import org.topicquests.common.api.IResult;
 import org.topicquests.common.api.ITopicQuestsOntology;
 import org.topicquests.model.api.INode;
-import org.topicquests.solr.SolrEnvironment;
+//import org.topicquests.solr.SolrEnvironment;
 import org.topicquests.solr.agents.merge.BasePortfolioAgent;
-import org.topicquests.solr.agents.merge.TopicMergePortfolio;
-import org.topicquests.solr.agents.merge.api.IPortfolioAgent;
-import org.topicquests.solr.api.ISolrModel;
+//import org.topicquests.solr.agents.merge.TopicMergePortfolio;
+//import org.topicquests.solr.agents.merge.api.IPortfolioAgent;
+//import org.topicquests.solr.api.ISolrQueryModel;
 import org.topicquests.solr.api.ISolrQueryIterator;
 
 /**
@@ -102,6 +102,7 @@ public class LabelMergeAgent extends BasePortfolioAgent {
 
 	@Override
 	protected boolean doWeCare(INode newTopic) {
+		agentEnvironment.logDebug("LabelMergeAgent.doWeCare "+newTopic.getLocator());
 		//TODO become more sophisticated here. We need to test;
 		//there will be some nodes for which looking at labels is
 		//not indicated, such as tuples

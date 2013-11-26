@@ -18,11 +18,14 @@ package org.topicquests.solr.agents.merge;
 import java.util.*;
 
 import org.topicquests.agent.solr.AgentEnvironment;
+import org.topicquests.common.ResultPojo;
 import org.topicquests.common.api.IResult;
 import org.topicquests.common.api.ITopicQuestsOntology;
 //import org.topicquests.model.api.IMergeImplementation;
 import org.topicquests.model.api.INode;
 import org.topicquests.model.api.INodeModel;
+import org.topicquests.model.api.ITuple;
+import org.topicquests.model.api.ITupleQuery;
 import org.topicquests.solr.agents.merge.agents.DetailsMergeAgent;
 import org.topicquests.solr.agents.merge.agents.LabelMergeAgent;
 import org.topicquests.solr.agents.merge.api.IPortfolioAgent;
@@ -40,6 +43,7 @@ public class TopicMergePortfolio {
 	private ITopicMergePortfolioListener listener;
 	private ISolrDataProvider database;
 	private INodeModel nodeModel;
+	//Thread safe since we spin a new instance with each document to study
 	private INode myNode;
 	private List<IPortfolioAgent>agents;
 	private List<Double>votes;
@@ -66,7 +70,7 @@ public class TopicMergePortfolio {
 	 */
 	public TopicMergePortfolio(AgentEnvironment e, ITopicMergePortfolioListener l) {
 		agentEnvironment = e;
-		database = agentEnvironment.getSolrEnvironment().getDataProvider();
+		database = (ISolrDataProvider)agentEnvironment.getSolrEnvironment().getDataProvider();
 		nodeModel = database.getNodeModel();
 		listener = l;
 		agents = new ArrayList<IPortfolioAgent>();
@@ -87,6 +91,8 @@ public class TopicMergePortfolio {
 			Class o = null; 
 			String name;
 			List<String>hit;
+			//Build a list of all registered merge agents
+			//Some will get removed later
 			while (itr.hasNext()) {
 				hit = itr.next();
 				name = hit.get(0);
@@ -125,6 +131,7 @@ public class TopicMergePortfolio {
 	 * @param newTopic
 	 */
 	public void studyNode(INode newTopic) {
+		//keep the node as a global since we look at it later in performMerge
 		myNode = newTopic;
 		agentEnvironment.logDebug("TopicMergePortfolio.studyNode "+newTopic.getLocator());
 		new MergeWorker();
@@ -167,8 +174,15 @@ public class TopicMergePortfolio {
 			isEmpty = agents.isEmpty();
 			agentEnvironment.logDebug("TopicMergePortfolio.acceptPortfolioAgent+");
 		}
-		if (isEmpty)
+		//////////////////////////////////////
+		// When each agent has fired, then the system is done; it's time to
+		// go perform the merges
+		//////////////////////////////////////
+		if (isEmpty) {
 			dealWithMerge();
+			//Notify the SolrMergeEngine
+			workerDone();
+		}
 
 	}
 	////////////////////////////////////////////////////////////////
@@ -274,6 +288,7 @@ public class TopicMergePortfolio {
 	void performMerge(String targetNodeLocator, Map<String,Double>details) {
 		agentEnvironment.logDebug("TopicMergePortfolio.performMerge- "+targetNodeLocator+" "+myNode.getLocator()+" "+details);
 		boolean isOkToMerge = false;
+		//we ignore the fact that we might be looking at the same node
 		if (targetNodeLocator.equals(myNode.getLocator()))
 			return;
 		String key;
@@ -315,7 +330,10 @@ public class TopicMergePortfolio {
 			//then die
 			agentEnvironment.logDebug("TopicMergePortfolio resting: "+myNode.getLocator());
 		}
-				
+		
+		/**
+		 * Exercise each of the available merge agents
+		 */
 		void fireTheAgenda() {
 			agentEnvironment.logDebug("TopicMergePortfolio.fireTheAgenda "+agents);
 			String locator = myNode.getLocator();
@@ -326,33 +344,41 @@ public class TopicMergePortfolio {
 				// then we crash due to acceptPortfolioAgent firing while we
 				// are still busy
 				// so, we just copy agents into a new list and use that
-				
-				l.addAll(agents);
+				Iterator<IPortfolioAgent>itr = agents.iterator();
+				IPortfolioAgent x;
+				while (itr.hasNext()) {
+					x = itr.next();
+					//possible null values from removing
+					if (x != null)
+						l.add(x);
+				}
 			}
 			agentEnvironment.logDebug("TopicMergePortfolio.fireTheAgenda-");
-				Iterator<IPortfolioAgent>itr = l.iterator();
-				//There is a concurrency issue going on here in relations to
-				// nodes being processed while this is running.
-				//we have many agents playing with myNode
-				//some of them are opening it up to look at the guts,
-				// building iterators, etc.
-				// the solution to that was to trade on locators, not on nodes
-				///////////////////////////////////
-				//there is a local ConcurrentModificationException going on
-				// at "a = itr.next()"
-				// so all visible references to the agents list are synchronized.
-				// that's not stopping the exception
-				IPortfolioAgent a;
-				while (itr.hasNext()) {
-					System.out.println("TopicMergePortfolio.firing");
-					a = itr.next();
-					if (a != null) // strange null values
-						a.evaluateTopic(locator);
-				}
-				agentEnvironment.logDebug("TopicMergePortfolio.fireTheAgenda+");
+			Iterator<IPortfolioAgent>itr = l.iterator();
+			//There is a concurrency issue going on here in relations to
+			// nodes being processed while this is running.
+			//we have many agents playing with myNode
+			//some of them are opening it up to look at the guts,
+			// building iterators, etc.
+			// the solution to that was to trade on locators, not on nodes
+			///////////////////////////////////
+			//there is a local ConcurrentModificationException going on
+			// at "a = itr.next()"
+			// so all visible references to the agents list are synchronized.
+			// that's not stopping the exception
+			IPortfolioAgent a;
+			while (itr.hasNext()) {
+				System.out.println("TopicMergePortfolio.firing");
+				a = itr.next();
+//					if (a != null) // strange null values
+				/////////////////
+				// An evaluated node, if it is to be merged, will send itself to 
+				a.evaluateTopic(locator);
 			}
+			agentEnvironment.logDebug("TopicMergePortfolio.fireTheAgenda+");
+		}
 				
-		
+
 		
 		/**
 		 * Figure out what to do on <code>myNode</code>
@@ -387,13 +413,14 @@ public class TopicMergePortfolio {
 						agents.remove(itr.next());
 				}
 			
-				//if agents is empty, add back labels and details as defaults
+	/*			//if agents is empty, add back labels and details as defaults
 				if (agents.isEmpty()) {
 					if (agents != null)
 						agents.add(labels);
 					if (details != null)
 						agents.add(details);
 				}
+	*/
 				agentEnvironment.logDebug("TopicMergePortfolio.buildAgenda+");
 			}
 				

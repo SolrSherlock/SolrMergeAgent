@@ -29,7 +29,7 @@ public class TripleMergeTest {
 	public TripleMergeTest() {
 		environment = new SolrEnvironment();
 		//grab the solr database
-		solr = environment.getDataProvider();
+		solr = (ISolrDataProvider)environment.getDataProvider();
 		model = solr.getNodeModel();
 		runTest();
 	}

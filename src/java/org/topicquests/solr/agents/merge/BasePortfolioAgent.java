@@ -28,7 +28,7 @@ import org.topicquests.model.api.ITupleQuery;
 import org.topicquests.solr.SolrEnvironment;
 import org.topicquests.solr.agents.merge.api.IPortfolioAgent;
 import org.topicquests.solr.api.ISolrDataProvider;
-import org.topicquests.solr.api.ISolrModel;
+import org.topicquests.solr.api.ISolrQueryModel;
 
 /**
  * @author park
@@ -44,12 +44,14 @@ public abstract class BasePortfolioAgent implements IPortfolioAgent {
 	public TopicMergePortfolio host;
 	public SolrEnvironment solrEnvironment;
 	public ISolrDataProvider database;
-	public ISolrModel solrModel;
+	public ISolrQueryModel solrModel;
+	//This is thread safe since a new instance is hatched for each node in question
+	//possible considerations for reuse by dropping globals in favor of locals
 	public INode theNode;
 	public Set<String>credentials;
 	public String myReason;
 	public List<String>errorMessages;
-	private ITupleQuery tupleQuery;
+//	private ITupleQuery tupleQuery;
 	
 	/** 
 	 * <p>all development work is in English; will be a while before others</p> 
@@ -76,8 +78,8 @@ public abstract class BasePortfolioAgent implements IPortfolioAgent {
 		this.solrEnvironment = agentEnvironment.getSolrEnvironment();
 		this.host = host;
 		solrModel = solrEnvironment.getSolrModel();
-		database = solrEnvironment.getDataProvider();
-		tupleQuery = database.getTupleQuery();
+		database = (ISolrDataProvider)solrEnvironment.getDataProvider();
+//		tupleQuery = database.getTupleQuery();
 		hits = new HashMap<INode, Map<String,Object>>();
 		credentials = new HashSet<String>();
 		credentials.add("admin");
@@ -115,13 +117,6 @@ public abstract class BasePortfolioAgent implements IPortfolioAgent {
 		//This reason should never show up in a trace because
 		//the extending class will set it to an appropriate value
 		myReason = "Bad topic "+ newTopic.getLocator();
-	//	if (!isMergeTuple(newTopic)) {
-			IResult x = hasVirtualProxy(newTopic);
-			//if this is an already merged topic, ignore it;
-			//in theory, there's a virtual proxy around for it
-			if (x.getResultObject() != null)
-				return false;
-		//}
 		return doWeCare(newTopic);
 	}
 	
@@ -309,30 +304,6 @@ public abstract class BasePortfolioAgent implements IPortfolioAgent {
 		iix++;
 		o.put("numHits", new Integer(iix));
 		agentEnvironment.logDebug("BasePortfolioAgent.addToHits-2 "+hits);
-	}
-	/**
-	 * <p>Return an {@link INode} if <code>sourceNode</code> is the <em>target</em></p>
-	 * <p>This relies on the notion that there can be one and only one MergeAssertion per node</p>
-	 * in a MergeAssertion
-	 * @param sourceNode
-	 * @return
-	 */
-	private IResult hasVirtualProxy(INode sourceNode) {
-		IResult result = new ResultPojo();
-		IResult tq = tupleQuery.listSubjectNodesByObjectAndRelation(sourceNode.getLocator(), ITopicQuestsOntology.MERGE_ASSERTION_TYPE, credentials);
-		if (tq.hasError())
-			result.addErrorString(tq.getErrorString());
-		if (tq.getResultObject() != null) {
-			List<INode>l = (List<INode>)tq.getResultObject();
-			if (!l.isEmpty()) {
-				ITuple t = (ITuple)l.get(0);
-				tq = database.getNode(t.getSubjectLocator(), credentials);
-				result.setResultObject((INode)tq.getResultObject());
-				if (tq.hasError())
-					result.addErrorString(tq.getErrorString());
-			}
-		}
-		return result;
 	}
 
 }

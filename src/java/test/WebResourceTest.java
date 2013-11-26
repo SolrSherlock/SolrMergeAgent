@@ -6,6 +6,7 @@ package test;
 import java.util.HashSet;
 import java.util.Set;
 
+import org.topicquests.agent.solr.AgentEnvironment;
 import org.topicquests.common.api.IResult;
 import org.topicquests.common.api.ITopicQuestsOntology;
 import org.topicquests.model.api.INode;
@@ -18,7 +19,7 @@ import org.topicquests.solr.api.ISolrDataProvider;
  *
  */
 public class WebResourceTest {
-	private SolrEnvironment environment;
+	private AgentEnvironment environment;
 	private ISolrDataProvider solr;
 	private INodeModel model;
 	private final String myURL = "http://someserver.org/";
@@ -27,9 +28,9 @@ public class WebResourceTest {
 	 * 
 	 */
 	public WebResourceTest() {
-		environment = new SolrEnvironment();
+		environment = new AgentEnvironment();
 		//grab the solr database
-		solr = environment.getDataProvider();
+		solr = (ISolrDataProvider)environment.getSolrEnvironment().getDataProvider();
 		model = solr.getNodeModel();
 		new Worker();
 	}

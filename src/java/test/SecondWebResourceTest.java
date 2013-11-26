@@ -7,6 +7,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.topicquests.agent.solr.AgentEnvironment;
 import org.topicquests.common.api.IResult;
 import org.topicquests.common.api.ITopicQuestsOntology;
 import org.topicquests.model.api.INode;
@@ -17,23 +18,23 @@ import org.topicquests.solr.api.ISolrDataProvider;
 import test.WebResourceTest.Worker;
 
 /**
- * @author Admin
+ * @author park
  *
  */
 public class SecondWebResourceTest {
-	private SolrEnvironment environment;
+	private AgentEnvironment environment;
 	private ISolrDataProvider solr;
 	private INodeModel model;
-	private final String myURL = "http://someserver.org/";
-	private final String otherURL = "http://someotherserver.org/";
+	private final String myURL = "http://xxsomeserver.org/";
+	private final String otherURL = "http://xxsomeotherserver.org/";
 
 	/**
 	 * 
 	 */
 	public SecondWebResourceTest() {
-		environment = new SolrEnvironment();
+		environment = new AgentEnvironment();
 		//grab the solr database
-		solr = environment.getDataProvider();
+		solr = (ISolrDataProvider)environment.getSolrEnvironment().getDataProvider();
 		model = solr.getNodeModel();
 		new Worker();
 	}
@@ -84,7 +85,7 @@ public class SecondWebResourceTest {
 			System.out.println(System.currentTimeMillis());
 			synchronized(waitObject) {
 				try {
-					waitObject.wait(2000); // 2 seconds
+					waitObject.wait(4000); // 4 seconds
 				} catch (Exception e) {
 					e.printStackTrace(); //"Another key point was made that that is false" //"One never knows about such things"
 				}

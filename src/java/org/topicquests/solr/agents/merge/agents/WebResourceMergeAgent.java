@@ -32,6 +32,7 @@ import org.topicquests.solr.api.ISolrQueryIterator;
  */
 public class WebResourceMergeAgent extends BasePortfolioAgent {
 	String queryString="";
+	String webURL = "";
 	/* (non-Javadoc)
 	 * @see org.topicquests.solr.agents.merge.BasePortfolioAgent#startWorker()
 	 */
@@ -45,9 +46,20 @@ public class WebResourceMergeAgent extends BasePortfolioAgent {
 	 */
 	@Override
 	protected boolean doWeCare(INode newTopic) {
-		myReason = "Same Web URL";
-		String typ = newTopic.getNodeType();
+		webURL = (String)newTopic.getProperty(ITopicQuestsOntology.RESOURCE_URL_PROPERTY);
+		myReason = "Same Web URL "+webURL;
+			String typ = newTopic.getNodeType();
+		String locator = newTopic.getLocator();
+		agentEnvironment.logDebug("WebResourceMergeAgent.doWeCare- "+typ+" "+webURL+" "+locator);
+		//quick test: we don't care if it doesn't have a URL
+		//note: in earlier code (below) we decided that a WebResource of any type
+		//without a URL is an error
+		if (webURL == null)
+			return false;
 		//look at three different types
+		//TODO do we really want to look at these?
+		//Awefully constraining, no room for other types to look at
+		//Perhaps config.xml types?
 		boolean isIt = ITopicQuestsOntology.WEB_RESOURCE_TYPE.equals(typ);
 		if (!isIt)
 			isIt = INodeTypes.BLOG_TYPE.equals(typ);
@@ -55,17 +67,23 @@ public class WebResourceMergeAgent extends BasePortfolioAgent {
 			isIt = INodeTypes.BOOKMARK_TYPE.equals(typ);
 		if (!isIt)
 			return false;
-		Object o = newTopic.getProperty(ITopicQuestsOntology.RESOURCE_URL_PROPERTY);
-		if (o == null) {//sanity check -- would be nice to alert user that a bad node came in
-			solrEnvironment.logError("WebResourceMergeAgent.doWeCare missing URL for "+newTopic.getLocator(), null);
-			return false;
-		}
-		queryString = "("+ITopicQuestsOntology.IS_VIRTUAL_PROXY+":true AND "+ITopicQuestsOntology.INSTANCE_OF_PROPERTY_TYPE+":"+ITopicQuestsOntology.WEB_RESOURCE_TYPE+") OR " +
-				"("+ITopicQuestsOntology.IS_VIRTUAL_PROXY+":true AND "+ITopicQuestsOntology.INSTANCE_OF_PROPERTY_TYPE+":"+INodeTypes.BLOG_TYPE+") OR " +
-				"("+ITopicQuestsOntology.IS_VIRTUAL_PROXY+":true AND "+ITopicQuestsOntology.INSTANCE_OF_PROPERTY_TYPE+":"+INodeTypes.BOOKMARK_TYPE+") OR " +
-				 "("+ITopicQuestsOntology.INSTANCE_OF_PROPERTY_TYPE+":"+INodeTypes.BOOKMARK_TYPE+") OR "+
-				 "("+ITopicQuestsOntology.INSTANCE_OF_PROPERTY_TYPE+":"+INodeTypes.BLOG_TYPE+") OR "+
-                "("+ITopicQuestsOntology.INSTANCE_OF_PROPERTY_TYPE+":"+ITopicQuestsOntology.WEB_RESOURCE_TYPE+")";
+//		Object o = newTopic.getProperty(ITopicQuestsOntology.RESOURCE_URL_PROPERTY);
+//		if (o == null) {//sanity check -- would be nice to alert user that a bad node came in
+//			solrEnvironment.logError("WebResourceMergeAgent.doWeCare missing URL for "+newTopic.getLocator(), null);
+//			return false;
+//		}
+		//TODO revise this query to allow for using the webURL of the node.
+		//DID
+		//THIS query narrows the field, and pre-screens for a particular URL, since
+		//that is what we are merging on
+		//TODO add to exclude this locator
+		queryString = "resourceURL:\""+webURL+"\" AND "+
+			//	"(("+ITopicQuestsOntology.IS_VIRTUAL_PROXY+":true AND "+ITopicQuestsOntology.INSTANCE_OF_PROPERTY_TYPE+":"+ITopicQuestsOntology.WEB_RESOURCE_TYPE+") OR " +
+			//	"("+ITopicQuestsOntology.IS_VIRTUAL_PROXY+":true AND "+ITopicQuestsOntology.INSTANCE_OF_PROPERTY_TYPE+":"+INodeTypes.BLOG_TYPE+") OR " +
+			//	"("+ITopicQuestsOntology.IS_VIRTUAL_PROXY+":true AND "+ITopicQuestsOntology.INSTANCE_OF_PROPERTY_TYPE+":"+INodeTypes.BOOKMARK_TYPE+") OR " +
+				 "("+ITopicQuestsOntology.INSTANCE_OF_PROPERTY_TYPE+":"+INodeTypes.BOOKMARK_TYPE+" OR "+
+				 ITopicQuestsOntology.INSTANCE_OF_PROPERTY_TYPE+":"+INodeTypes.BLOG_TYPE+" OR "+
+                 ITopicQuestsOntology.INSTANCE_OF_PROPERTY_TYPE+":"+ITopicQuestsOntology.WEB_RESOURCE_TYPE+")";
 		return true;
 	}
 
@@ -79,8 +97,12 @@ public class WebResourceMergeAgent extends BasePortfolioAgent {
 			this.start();
 		}
 		
+		/**
+		 * NOTE: this algorithm pulls in all kinds of web resources;
+		 * it could, instead, pull in all nodes that use the <code>webURL</code>
+		 * found in this node, which would greatly simplify the code.
+		 */
 		public void run() {
-			String webURL = (String)theNode.getProperty(ITopicQuestsOntology.RESOURCE_URL_PROPERTY);
 			agentEnvironment.logDebug("WebResourceMergeAgent- "+webURL);
 			ISolrQueryIterator itr = solrEnvironment.getQueryIterator();
 			List<INode> theHits;
@@ -92,6 +114,7 @@ public class WebResourceMergeAgent extends BasePortfolioAgent {
 			if (itrResult.hasError())
 				errorMessages.add(itrResult.getErrorString());
 			theHits = (List<INode>)itrResult.getResultObject();
+			agentEnvironment.logDebug("WebResourceMergeAgent-1 "+theHits);
 			String hitURL;
 			while (theHits != null && !theHits.isEmpty()) {
 				if (itrResult.hasError())

@@ -48,11 +48,15 @@ public class SolrMergeAgent implements  IPluggableAgent {
 
 	@Override
 	public IResult init(AgentEnvironment env, String agentName) {
+		log  = LoggingPlatform.getLiveInstance();
+		log.logDebug("SolrMergeAgent starting");
 		this.agentName = agentName;
 		agentEnvironment = env;
 		solrEnvironment = env.getSolrEnvironment();
+		//fetch the AgentFramework's blackboard
+		//which is filled by the blackboard with, among other things, objects
+		//sent over due to listening to SolrUpdateResponseHandler
 		blackboard = agentEnvironment.getTupleSpaceEnvironment().getTupleSpace();
-		log  = LoggingPlatform.getInstance();
 //		tracer = log.getTracer(agentName);
 		mergeThread = new SolrMergeThread(agentEnvironment);
 		IResult result = new ResultPojo();
@@ -81,6 +85,9 @@ public class SolrMergeAgent implements  IPluggableAgent {
 		}
 		
 		Worker() {
+			//build a template for querying the blackboard
+			//this template looks only for NewSolrDoc objects
+			//which are sent over from Solr
 			template = new Tuple(1, ITupleTags.NEW_SOLR_DOC);
 			template.set(ITupleFields.AGENT_NAME, agentName);
 			this.start();

@@ -31,6 +31,7 @@ public class TestHarness {
 		//new TripleMergeTest();
 		//new WebResourceTest();
 		new SecondWebResourceTest();
+		//new CloudTest_1();
 		System.out.println("Did");
 	}
 
